@@ -3,10 +3,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Formik, Form, Field, ErrorMessage, FormikErrors } from 'formik';
 import * as Yup from 'yup';
-import { API, useAuth } from '../auth/AuthContext';
+import { API, API_SUPPLY_API, useAuth } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 
 const TransactionFormPage: React.FC = () => {
+
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -14,23 +15,21 @@ const TransactionFormPage: React.FC = () => {
   type Region = {
     regionCode: string;
     regionName?: string;
-    active?: boolean;
     [key: string]: any;
   };
   type Supply = {
     id?: string;
-    supplyId?: string;
     supplyName?: string;
-    active?: boolean | string;
+    isActive?: boolean | string;
     regionalPrices?: any[];
     [key: string]: any;
   };
-  
+
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [regions, setRegions] = useState<Region[]>([]);
   const [availableRegions, setAvailableRegions] = useState<Region[]>([]);
   const [selectedSupply, setSelectedSupply] = useState<Supply | null>(null);
-  
+
   // Parse query parameters for pre-selected supply
   const queryParams = new URLSearchParams(location.search);
   const preSelectedSupplyId = queryParams.get('supply');
@@ -63,6 +62,13 @@ const TransactionFormPage: React.FC = () => {
     loadRegions();
   }, []);
 
+  useEffect(() => {
+    if (selectedSupply && Array.isArray(selectedSupply.regionalPrices) && regions.length > 0) {
+      updateAvailableRegions(selectedSupply);
+    }
+  }, [selectedSupply, regions]);
+
+
   // Load supply details when a supply is selected
   useEffect(() => {
     if (preSelectedSupplyId) {
@@ -73,14 +79,14 @@ const TransactionFormPage: React.FC = () => {
   const loadSupplies = async () => {
     try {
       setLoading(true);
-      const response = await API.get('supply/list');
-      
-      if (response.data && Array.isArray(response.data.data)) {
+      const response = await API_SUPPLY_API.get('supply/list');
+
+      if (response.data && Array.isArray(response.data)) {
         // Filter to only include active supplies
-        const activeSupplies = response.data.data.filter((supply: { active: string | boolean; }) => 
-          supply.active === true || supply.active === 'true'
+        const activeSupplies = response.data.filter((supply: { isActive: string | boolean; }) =>
+          supply.isActive === true || supply.isActive === 'true'
         );
-        
+
         setSupplies(activeSupplies);
       }
     } catch (error) {
@@ -102,12 +108,11 @@ const TransactionFormPage: React.FC = () => {
   const loadRegions = async () => {
     try {
       setLoading(true);
-      const response = await API.get('region/list');
-      
+      const response = await API.get('region');
+
       if (Array.isArray(response.data)) {
         // Filter to only include active regions
-        const activeRegions = response.data.filter(region => region.active);
-        
+
         // Get user's regions
         const userRegions: string[] = [];
         if (user && user.regionCode && Array.isArray(user.regionCode)) {
@@ -119,12 +124,12 @@ const TransactionFormPage: React.FC = () => {
             }
           });
         }
-        
+
         // Filter regions to only include those assigned to the user
         const filteredRegions = userRegions.length > 0
-          ? activeRegions.filter(region => userRegions.includes(region.regionCode))
-          : activeRegions;
-        
+          ? response.data.filter((region: Region) => userRegions.includes(region.regionCode))
+          : response.data;
+
         setRegions(filteredRegions);
       }
     } catch (error) {
@@ -146,12 +151,12 @@ const TransactionFormPage: React.FC = () => {
   const loadSupplyDetails = async (supplyId: string) => {
     try {
       setLoading(true);
-      const response = await API.get(`supply/list/${supplyId}`);
-      
-      if (response.data && response.data.data) {
-        const supplyData = response.data.data;
+      const response = await API_SUPPLY_API.get(`supply/list/${supplyId}`);
+
+      if (response.data) {
+        const supplyData = response.data;
         setSelectedSupply(supplyData);
-        
+
         // Filter available regions for this supply
         updateAvailableRegions(supplyData);
       }
@@ -171,12 +176,12 @@ const TransactionFormPage: React.FC = () => {
     }
   };
 
-  const updateAvailableRegions = (supply: { regionalPrices: any[]; }) => {
-    if (!supply || !supply.regionalPrices || !Array.isArray(supply.regionalPrices)) {
+  const updateAvailableRegions = (supply: { regionalPrices?: any[]; }) => {
+    if (!supply.regionalPrices || !Array.isArray(supply.regionalPrices)) {
       setAvailableRegions([]);
       return;
     }
-    
+
     // Get user's regions
     const userRegions: string[] = [];
     if (user && user.regionCode && Array.isArray(user.regionCode)) {
@@ -188,33 +193,33 @@ const TransactionFormPage: React.FC = () => {
         }
       });
     }
-    
+
     // Get supply's regions
     const supplyRegionCodes = supply.regionalPrices.map(rp => rp.regionCode);
-    
+
     // Find overlapping regions (user's regions that are also defined for this supply)
     const overlappingRegionCodes = userRegions.length > 0
       ? supplyRegionCodes.filter(code => userRegions.includes(code))
       : supplyRegionCodes;
-    
+
     // Map to full region objects
-    const availableRegionsList = regions.filter(region => 
+    const availableRegionsList = regions.filter(region =>
       overlappingRegionCodes.includes(region.regionCode)
     );
-    
+
     setAvailableRegions(availableRegionsList);
   };
 
   const handleSupplyChange = async (e: { target: { value: any; }; }, setFieldValue: {
-      (field: string, value: any, shouldValidate?: boolean): Promise<void | FormikErrors<{
-        supplyId: string; regionCode: string; typeEntry: string; // Default to OUT
-        quantity: number; created: string; // Default to today
-      }>>; (arg0: string, arg1: string): void;
-    }) => {
+    (field: string, value: any, shouldValidate?: boolean): Promise<void | FormikErrors<{
+      supplyId: string; regionCode: string; typeEntry: string; // Default to OUT
+      quantity: number; created: string; // Default to today
+    }>>; (arg0: string, arg1: string): void;
+  }) => {
     const supplyId = e.target.value;
     setFieldValue('supplyId', supplyId);
     setFieldValue('regionCode', ''); // Reset region when supply changes
-    
+
     if (supplyId) {
       await loadSupplyDetails(supplyId);
     } else {
@@ -227,41 +232,73 @@ const TransactionFormPage: React.FC = () => {
     if (!selectedSupply || !selectedSupply.regionalPrices || !Array.isArray(selectedSupply.regionalPrices)) {
       return null;
     }
-    
+
     return selectedSupply.regionalPrices.find(rp => rp.regionCode === regionCode);
   };
 
-  const handleSubmit = async (values: { created: string | number | Date; }, { setSubmitting }: any) => {
+  const handleSubmit = async (values: any, { setSubmitting }: any) => {
     try {
       setLoading(true);
-      
-      // Get current date and time in ISO format
-      const now = new Date().toISOString();
-      
-      // Format the created date to include time component
-      const createdDate = new Date(values.created);
-      createdDate.setHours(new Date().getHours());
-      createdDate.setMinutes(new Date().getMinutes());
-      createdDate.setSeconds(new Date().getSeconds());
-      
-      // Build the transaction data
+
+      // Quebra a string YYYY-MM-DD em partes
+      const [year, month, day] = values.created.split('-').map(Number);
+
+      // Cria a data no horário local (sem confundir com UTC)
+      const createdDate = new Date(year, month - 1, day);
+
+      // Data de hoje no horário local
+      const today = new Date();
+
+      // Verifica se a data do form é igual ao dia atual (ano, mês, dia)
+      const isSameDate =
+        createdDate.getFullYear() === today.getFullYear() &&
+        createdDate.getMonth() === today.getMonth() &&
+        createdDate.getDate() === today.getDate();
+
+      let formattedCreatedDate: string;
+
+      if (!isSameDate) {
+        // Data manual - fixa o horário para 00:00:00 (string ISO local sem fuso)
+        formattedCreatedDate = `${values.created}T00:00:00`;
+      } else {
+        // Data automática - hora atual menos 3h (UTC-3)
+        const now = new Date();
+        now.setHours(now.getHours() - 3);
+        formattedCreatedDate = now.toISOString().slice(0, 19);
+      }
+
+      const regionalPrice = getRegionalPrice(values.regionCode);
+      const priceUnit = regionalPrice?.price || 0;
+      const quantity = parseInt(values.quantity, 10);
+      const totalPrice = priceUnit * quantity;
+
       const transactionData = {
-        ...values,
-        created: createdDate.toISOString().split('.')[0], // Remove milliseconds
-        userId: user?.id,
-        timestamp: now
+        supplyId: parseInt(values.supplyId, 10),
+        quantityAmended: quantity,
+        created: formattedCreatedDate,
+        regionCode: values.regionCode,
+        priceUnit,
+        totalPrice,
+        typeEntry: values.typeEntry,
       };
-      
-      // Send the transaction
-      const response = await API.post('use', transactionData);
-      
+
+      await API_SUPPLY_API.post('supply/consumptions', transactionData);
+
       toast.success('Transaction created successfully');
       navigate('/transactions');
     } catch (error) {
       console.error('Error creating transaction:', error);
       let errorMessage = 'Unknown error';
       if (error && typeof error === 'object') {
-        if ('response' in error && error.response && typeof error.response === 'object' && 'data' in error.response && error.response.data && typeof error.response.data === 'object' && 'message' in error.response.data) {
+        if (
+          'response' in error &&
+          error.response &&
+          typeof error.response === 'object' &&
+          'data' in error.response &&
+          error.response.data &&
+          typeof error.response.data === 'object' &&
+          'message' in error.response.data
+        ) {
           errorMessage = (error.response as any).data.message;
         } else if ('message' in error) {
           errorMessage = (error as any).message;
@@ -273,6 +310,8 @@ const TransactionFormPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+
 
   // Initial form values
   const initialValues = {
@@ -287,8 +326,8 @@ const TransactionFormPage: React.FC = () => {
     <div className="container-fluid px-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="h3 mb-0 text-gray-800">New Transaction</h1>
-        <button 
-          className="btn btn-outline-secondary" 
+        <button
+          className="btn btn-outline-secondary"
           onClick={() => navigate('/transactions')}
         >
           <i className="bi bi-arrow-left me-1"></i> Back to Transactions
@@ -322,8 +361,8 @@ const TransactionFormPage: React.FC = () => {
                       >
                         <option value="">Select a supply</option>
                         {supplies.map(supply => (
-                          <option 
-                            key={supply.id || supply.supplyId} 
+                          <option
+                            key={supply.id || supply.supplyId}
                             value={supply.id || supply.supplyId}
                           >
                             {supply.supplyName}
@@ -350,13 +389,13 @@ const TransactionFormPage: React.FC = () => {
                         <option value="">Select a region</option>
                         {availableRegions.map(region => {
                           const regionalPrice = getRegionalPrice(region.regionCode);
-                          const priceText = regionalPrice ? 
-                            ` (Price: ${regionalPrice.price} ${regionalPrice.currency || 'USD'}, Stock: ${regionalPrice.quantity || 0})` : 
+                          const priceText = regionalPrice ?
+                            ` (Price: ${regionalPrice.price} ${regionalPrice.currency || 'USD'}, Stock: ${regionalPrice.quantity || 0})` :
                             '';
-                          
+
                           return (
-                            <option 
-                              key={region.regionCode} 
+                            <option
+                              key={region.regionCode}
                               value={region.regionCode}
                             >
                               {region.regionCode} - {region.regionName}{priceText}
@@ -397,14 +436,14 @@ const TransactionFormPage: React.FC = () => {
                           step="1"
                         />
                         <ErrorMessage name="quantity" component="div" className="invalid-feedback" />
-                        
+
                         {/* Stock warning for OUT transactions */}
                         {values.typeEntry === 'OUT' && values.regionCode && (
                           (() => {
                             const regionalPrice = getRegionalPrice(values.regionCode);
                             const currentStock = regionalPrice ? parseInt(regionalPrice.quantity) || 0 : 0;
                             const requestedQuantity = parseInt(values.quantity.toString()) || 0;
-                            
+
                             if (currentStock < requestedQuantity) {
                               return (
                                 <div className="form-text text-danger">
@@ -418,7 +457,7 @@ const TransactionFormPage: React.FC = () => {
                                 </div>
                               );
                             }
-                            
+
                             return null;
                           })()
                         )}

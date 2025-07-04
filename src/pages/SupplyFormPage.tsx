@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Formik, Form, Field, ErrorMessage, FieldArray } from 'formik';
 import * as Yup from 'yup';
-import { API } from '../auth/AuthContext';
+import { API, API_SUPPLY_API } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 
 const SupplyFormPage: React.FC = () => {
@@ -12,14 +12,14 @@ const SupplyFormPage: React.FC = () => {
   const isEditMode = !!id;
   interface SupplyData {
     supplyName?: string;
-    supplyDescription?: string;
-    active?: boolean | string;
+    description?: string;
+    isActive?: boolean | string;
     regionalPrices?: any[];
     [key: string]: any;
   }
   const [supply, setSupply] = useState<SupplyData | null>(null);
   const [loading, setLoading] = useState(isEditMode);
-  type Region = { regionCode: string; regionName: string; active: boolean };
+  type Region = { regionCode: string; regionName: string };
   const [regions, setRegions] = useState<Region[]>([]);
   
   // Validation schema
@@ -27,9 +27,9 @@ const SupplyFormPage: React.FC = () => {
     supplyName: Yup.string()
       .required('Supply name is required')
       .max(100, 'Supply name must be 100 characters or less'),
-    supplyDescription: Yup.string()
+    description: Yup.string()
       .max(500, 'Description must be 500 characters or less'),
-    active: Yup.boolean(),
+    isActive: Yup.boolean(),
     regionalPrices: Yup.array().of(
       Yup.object().shape({
         regionCode: Yup.string()
@@ -60,10 +60,10 @@ const SupplyFormPage: React.FC = () => {
   const fetchSupply = async () => {
     try {
       setLoading(true);
-      const response = await API.get(`supply/list/${id}`);
+      const response = await API_SUPPLY_API.get(`supply/list/${id}`);
       
-      if (response.data && response.data.data) {
-        const supplyData = response.data.data;
+      if (response.data && response.data) {
+        const supplyData = response.data;
         
         // Ensure that regionalPrices are properly formatted
         if (supplyData.regionalPrices && Array.isArray(supplyData.regionalPrices)) {
@@ -97,11 +97,11 @@ const SupplyFormPage: React.FC = () => {
 
   const fetchRegions = async () => {
     try {
-      const response = await API.get('region/list');
+      const response = await API.get('region');
       
       if (Array.isArray(response.data)) {
         // Filter to only include active regions
-        const activeRegions = response.data.filter(region => region.active);
+        const activeRegions = response.data.filter(region => region.isActive);
         setRegions(activeRegions);
       }
     } catch (error) {
@@ -116,11 +116,10 @@ const SupplyFormPage: React.FC = () => {
 
   interface SupplyFormValues {
     supplyName?: string;
-    supplyDescription?: string;
-    active: boolean;
+    description?: string;
+    isActive: boolean;
     regionalPrices: any[];
     id?: string;
-    supplyId?: string;
     supplyImages?: any[];
   }
 
@@ -130,7 +129,7 @@ const SupplyFormPage: React.FC = () => {
       const supplyData: SupplyFormValues = {
         ...values,
         // Convert boolean to string for the API
-        active: values.active.toString() as unknown as boolean,
+        isActive: values.isActive.toString() as unknown as boolean,
         // Ensure regionalPrices have string values for price and quantity
         regionalPrices: values.regionalPrices.map(rp => ({
           ...rp,
@@ -142,9 +141,6 @@ const SupplyFormPage: React.FC = () => {
       if (isEditMode) {
         // Add the ID for update
         supplyData.id = id;
-      } else {
-        // Add empty supplyId for create
-        supplyData.supplyId = "";
       }
       
       // Add empty supplyImages array
@@ -154,11 +150,11 @@ const SupplyFormPage: React.FC = () => {
       
       if (isEditMode) {
         // Update existing supply
-        response = await API.put(`supply/update/${id}`, supplyData);
+        response = await API_SUPPLY_API.put(`supply/edit/${id}`, supplyData);
         toast.success('Supply updated successfully');
       } else {
         // Create new supply
-        response = await API.post('supply/add', supplyData);
+        response = await API_SUPPLY_API.post('supply/create', supplyData);
         toast.success('Supply created successfully');
       }
       
@@ -179,16 +175,16 @@ const SupplyFormPage: React.FC = () => {
   const initialValues = isEditMode && supply
     ? {
         supplyName: supply.supplyName || '',
-        supplyDescription: supply.supplyDescription || '',
-        active: supply.active === undefined ? true : (supply.active === 'true' || supply.active === true),
+        description: supply.description || '',
+        isActive: supply.isActive === undefined ? true : (supply.isActive === 'true' || supply.isActive === true),
         regionalPrices: supply.regionalPrices && supply.regionalPrices.length > 0
           ? supply.regionalPrices
           : [{ regionCode: '', price: '', currency: 'USD', supplier: '', quantity: 0 }]
       }
     : {
         supplyName: '',
-        supplyDescription: '',
-        active: true,
+        description: '',
+        isActive: true,
         regionalPrices: [{ regionCode: '', price: '', currency: 'USD', supplier: '', quantity: 0 }]
       };
 
@@ -256,16 +252,16 @@ const SupplyFormPage: React.FC = () => {
                 </div>
 
                 <div className="mb-3">
-                  <label htmlFor="supplyDescription" className="form-label">Description</label>
+                  <label htmlFor="description" className="form-label">Description</label>
                   <Field
                     as="textarea"
-                    id="supplyDescription"
-                    name="supplyDescription"
-                    className={`form-control ${errors.supplyDescription && touched.supplyDescription ? 'is-invalid' : ''}`}
+                    id="description"
+                    name="description"
+                    className={`form-control ${errors.description && touched.description ? 'is-invalid' : ''}`}
                     placeholder="Enter supply description"
                     rows="3"
                   />
-                  <ErrorMessage name="supplyDescription" component="div" className="invalid-feedback" />
+                  <ErrorMessage name="description" component="div" className="invalid-feedback" />
                 </div>
 
                 <div className="mb-3">

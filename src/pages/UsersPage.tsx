@@ -12,7 +12,7 @@ type User = {
   lastName: string;
   email: string;
   role: string;
-  active: boolean;
+  isActive: boolean;
   regions?: { regionCode: string;[key: string]: any }[];
   permissions?: { permissionName: string;[key: string]: any }[];
 };
@@ -24,7 +24,9 @@ const UsersPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadUsers();
+    requestAnimationFrame(() => {
+      loadUsers();
+    });
   }, []);
 
   const loadUsers = async () => {
@@ -34,16 +36,16 @@ const UsersPage: React.FC = () => {
 
       if (response.data && Array.isArray(response.data)) {
         setUsers(response.data);
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        setUsers(response.data.data);
+      } else if (response.data && Array.isArray(response.data)) {
+        setUsers(response.data);
       } else {
         throw new Error('Invalid response format');
       }
     } catch (error) {
       console.error('Error loading users:', error);
       const err = error as any;
-      setError('Failed to load users. ' + (err?.response?.data?.message || err?.message));
-      toast.error('Failed to load users: ' + (err?.response?.data?.message || err?.message));
+      setError('Failed to load users. ' + (err?.message));
+      toast.error('Failed to load users: ' + (err?.message));
     } finally {
       setLoading(false);
     }
@@ -88,7 +90,7 @@ const UsersPage: React.FC = () => {
       'SUPERVISOR': 'bg-warning',
       'USER': 'bg-primary',
       'GUEST': 'bg-secondary',
-      'MASTER': 'bg-success'
+      'MASTER': 'bg-warning bg-gradient'
     };
 
     const badgeClass = role && roleClasses[role] ? roleClasses[role] : 'bg-info';
@@ -108,19 +110,18 @@ const UsersPage: React.FC = () => {
   };
 
   const renderPermissionBadges = (permissions: { permissionName: string }[] | undefined) => {
-      if (!permissions || permissions.length === 0) {
-        return <span className="text-muted">None</span>;
-      }
-  
-      return permissions.map((perm, index) => (
-        <span key={index} className="badge bg-info me-1">{perm.permissionName}</span>
-      ));
-    };
+    if (!permissions || permissions.length === 0) {
+      return <span className="text-muted">None</span>;
+    }
+
+    return permissions.map((perm, index) => (
+      <span key={index} className="badge bg-info me-1">{perm.permissionName}</span>
+    ));
+  };
 
   return (
     <div className="container-fluid px-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="h3 mb-0 text-gray-800">User Management</h1>
         <Link to="/users/new" className="btn btn-primary">
           <i className="bi bi-plus-circle me-1"></i> Add New User
         </Link>
@@ -173,7 +174,7 @@ const UsersPage: React.FC = () => {
                         <td>{user.email}</td>
                         <td>{getRoleBadge(user.role)}</td>
                         <td>
-                          {user.active ?
+                          {user.isActive ?
                             <span className="badge bg-success">Active</span> :
                             <span className="badge bg-danger">Inactive</span>
                           }

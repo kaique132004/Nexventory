@@ -18,10 +18,17 @@ const ResetPasswordPage: React.FC = () => {
 
   // Redirect if already authenticated (except when in reset mode)
   useEffect(() => {
-    if (isAuthenticated && !isResetMode) {
+    let isMounted = true;
+
+    if (isAuthenticated && !isResetMode && isMounted) {
       navigate('/');
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated, navigate, isResetMode]);
+
 
   // Validation schemas
   const requestSchema = Yup.object().shape({
@@ -32,8 +39,12 @@ const ResetPasswordPage: React.FC = () => {
 
   const resetSchema = Yup.object().shape({
     password: Yup.string()
-      .min(8, 'Password must be at least 8 characters')
-      .required('Password is required'),
+      .matches(
+        /^(?=.*[A-Z])(?=.*[!@#$&*])(?=.*[a-z]).{8,}$/,
+        'The password must have at least 8 characters, an uppercase letter, a lowercase letter and a special character'
+      )
+      .required('Senha obrigatória'),
+
     confirmPassword: Yup.string()
       .oneOf([Yup.ref('password'), undefined], 'Passwords must match')
       .required('Confirm password is required')
@@ -44,7 +55,7 @@ const ResetPasswordPage: React.FC = () => {
     try {
       setLoading(true);
       const result = await requestPasswordReset(values.email);
-      
+
       if (result.success) {
         setResetRequested(true);
         toast.success('Password reset link sent to your email');
@@ -76,13 +87,16 @@ const ResetPasswordPage: React.FC = () => {
         return;
       }
       const result = await resetPassword(token, values.password);
-      
+
       if (result.success) {
         toast.success('Password reset successful! You can now login.');
         navigate('/login');
       } else {
         setErrors({ general: result.error || 'Failed to reset password' });
-        toast.error(result.error || 'Failed to reset password');
+        if (result.error) {
+          toast.error(result.error);
+        }
+
       }
     } catch (error) {
       console.error('Reset password error:', error);
@@ -243,7 +257,7 @@ const ResetPasswordPage: React.FC = () => {
                   {isResetMode ? 'Create a new password' : 'Reset your password'}
                 </p>
               </div>
-              
+
               {isResetMode ? renderResetForm() : renderRequestForm()}
             </div>
           </div>

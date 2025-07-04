@@ -12,10 +12,15 @@ const LoginPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
     if (isAuthenticated) {
       navigate('/');
     }
+    return () => {
+      isMounted = false;
+    };
   }, [isAuthenticated, navigate]);
+
 
   interface LoginFormValues {
     username: string;
@@ -39,37 +44,49 @@ const LoginPage: React.FC = () => {
     values: LoginFormValues,
     { setSubmitting, setErrors }: import('formik').FormikHelpers<LoginFormValues>
   ) => {
+    let isMounted = true;
+
     try {
       setLoading(true);
 
       const result: LoginResult = await login(values.username, values.password);
 
       if (result && result.encryptedToken) {
-        // 💾 Salvar token e dados no localStorage
         localStorage.setItem('token', result.encryptedToken);
         localStorage.setItem('username', result.username || '');
         localStorage.setItem('role', result.role || '');
 
-        toast.success('Login successful!');
-        navigate('/');
+        if (isMounted) toast.success('Login successful!');
+        if (isMounted) navigate('/');
       } else {
         const errorMsg = result.error || 'Login failed: Invalid credentials or response';
-        setErrors({ general: errorMsg });
-        toast.error(errorMsg);
+        if (isMounted) {
+          setErrors({ general: errorMsg });
+          toast.error(errorMsg);
+        }
       }
     } catch (error) {
-      console.error('Login error:', error);
       const errorMessage =
         error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string'
           ? (error as any).message
           : 'An unexpected error occurred';
-      setErrors({ general: errorMessage });
-      toast.error(errorMessage);
+
+      if (isMounted) {
+        setErrors({ general: errorMessage });
+        toast.error(errorMessage);
+      }
     } finally {
-      setLoading(false);
-      setSubmitting(false);
+      if (isMounted) {
+        setLoading(false);
+        setSubmitting(false);
+      }
     }
+
+    return () => {
+      isMounted = false;
+    };
   };
+
 
   return (
     <div className="container">

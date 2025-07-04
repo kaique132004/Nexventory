@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API_SUPPLY_API, useAuth } from '../auth/AuthContext';
+import { API, API_SUPPLY_API, useAuth } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 import { Formik, Form, Field } from 'formik';
 
@@ -8,31 +8,34 @@ import { Formik, Form, Field } from 'formik';
 interface Region {
   regionCode: string;
   regionName: string;
-  active: boolean;
 }
 
 interface Supply {
   id: string;
   supplyName: string;
-  active: boolean;
+  description?: string;
+  isActive: boolean;
 }
 
 interface Transaction {
   id: string;
-  supplyName: string;
   userName: string;
+  supplyName: string;
   regionCode: string;
   typeEntry: 'IN' | 'OUT';
   quantityAmended: number;
+  quantityBefore: number;
+  quantityAfter: number;
   priceUnit: number;
   created: string;
 }
 
 interface Filter {
-  startDate: string;
-  endDate: string;
-  regionCodes: string[]; // <- agora é um array
-  nameSupply: string;
+  startDate: string | null;
+  endDate: string | null;
+  regionCodes: string[] | null; // <- agora é um array
+  nameSupply: string[] | null;
+  typeEntry: string | null;
 }
 
 
@@ -49,19 +52,19 @@ const TransactionsPage: React.FC = () => {
   // Default filter values - last 30 days
   const today = new Date();
   const lastMonth = new Date();
-  lastMonth.setMonth(today.getMonth() - 1);
+  lastMonth.setMonth(today.getMonth() - 24);
 
   const defaultFilter: Filter = {
     startDate: lastMonth.toISOString().split('T')[0],
     endDate: today.toISOString().split('T')[0],
     regionCodes: [],
-    nameSupply: ''
+    nameSupply: [],
+    typeEntry: '',
   };
 
   const [filter, setFilter] = useState<Filter>(defaultFilter);
 
   useEffect(() => {
-    // Load initial data
     const loadData = async () => {
       try {
         await Promise.all([loadRegions(), loadSupplies()]);
@@ -72,53 +75,54 @@ const TransactionsPage: React.FC = () => {
       }
     };
 
-    loadData();
+    requestAnimationFrame(() => {
+      loadData();
+    });
   }, []);
 
   const loadRegions = async () => {
     try {
-      const response = await API_SUPPLY_API.get<Region[]>('region/list');
+      const response = await API.get<Region[]>('region');
 
       if (Array.isArray(response.data)) {
-        // Filter to only include active regions
-        const activeRegions = response.data.filter(region => region.active);
+        const allRegions = response.data;
 
-        // If user has restricted regions, filter to only show those
         if (user && user.regionCode && Array.isArray(user.regionCode)) {
           const userRegionCodes = user.regionCode.map(r =>
             typeof r === 'object' ? r.regionCode : r
           );
 
-          const filteredRegions = activeRegions.filter(region =>
+          const filteredRegions = allRegions.filter(region =>
             userRegionCodes.includes(region.regionCode)
           );
 
           setRegions(filteredRegions);
         } else {
-          setRegions(activeRegions);
+          setRegions(allRegions);
         }
       }
     } catch (error: any) {
       console.error('Erro ao carregar regiões:', error);
-      toast.error('Erro ao carregar regiões: ' + (error.response?.data?.message || error.message));
+      toast.error('Erro ao carregar regiões: ' + (error.message));
     }
   };
+
 
   const loadSupplies = async () => {
     try {
       const response = await API_SUPPLY_API.get<{ data: Supply[] }>('supply/list');
 
-      if (response.data?.data && Array.isArray(response.data.data)) {
+      if (response.data && Array.isArray(response.data)) {
         // Filter to only include active supplies
-        const activeSupplies = response.data.data.filter(supply =>
-          supply.active === true
+        const activeSupplies = response.data.filter(supply =>
+          supply.isActive === true
         );
 
         setSupplies(activeSupplies);
       }
     } catch (error: any) {
       console.error('Erro ao carregar suprimentos:', error);
-      toast.error('Erro ao carregar suprimentos: ' + (error.response?.data?.message || error.message));
+      toast.error('Erro ao carregar suprimentos: ' + (error.message));
     }
   };
 
@@ -160,7 +164,7 @@ const TransactionsPage: React.FC = () => {
       setError(null);
     } catch (error: any) {
       console.error('Erro ao carregar transações:', error);
-      const errorMessage = error.response?.data?.message || error.message;
+      const errorMessage = error.message;
       setError('Falha ao carregar transações. ' + errorMessage);
       toast.error('Falha ao carregar transações: ' + errorMessage);
     } finally {
@@ -205,7 +209,7 @@ const TransactionsPage: React.FC = () => {
       toast.success('Transações exportadas com sucesso');
     } catch (error: any) {
       console.error('Erro ao exportar transações:', error);
-      toast.error('Falha ao exportar transações: ' + (error.response?.data?.message || error.message));
+      toast.error('Falha ao exportar transações: ' + ('Erro desconhecido'));
     } finally {
       setExportLoading(false);
     }

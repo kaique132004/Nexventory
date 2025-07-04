@@ -28,26 +28,28 @@ const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let isMounted = true;
+
+    requestAnimationFrame(() => {
+      loadDashboardData();
+    });
+
     const loadDashboardData = async () => {
       try {
         setLoading(true);
 
-        // Fetch users count
         const usersResponse = await API.get('/auth/users');
         const totalUsers = usersResponse.data.length || 0;
 
-        // Fetch regions count
         const regionsResponse = await API.get('/region');
         const totalRegions = regionsResponse.data.length || 0;
 
-        // Fetch supplies count
         const suppliesResponse = await API_SUPPLY_API.get('/supply/list');
         const totalSupplies = suppliesResponse.data?.length || 0;
 
-        // Fetch transactions with filter for the past month
         const today = new Date();
         const lastMonth = new Date();
-        lastMonth.setMonth(today.getMonth() - 1);
+        lastMonth.setMonth(today.getMonth() - 12);
 
         const filter = {
           startDate: lastMonth.toISOString().split('T')[0],
@@ -55,18 +57,15 @@ const DashboardPage: React.FC = () => {
         };
 
         const transactionsResponse = await API_SUPPLY_API.post('/supply/finder', filter);
+        //const transactionsResponse = await API_SUPPLY_API.get('consumptions/list');
 
-        // Extract transactions array from response
         let transactions = [];
         if (Array.isArray(transactionsResponse.data)) {
           transactions = transactionsResponse.data;
         } else if (Array.isArray(transactionsResponse.data?.transactions)) {
           transactions = transactionsResponse.data.transactions;
-        } else if (Array.isArray(transactionsResponse.data)) {
-          transactions = transactionsResponse.data;
         }
 
-        // Calculate total prices and quantities for "OUT" transactions
         const totalOutQuantity = transactions
           .filter((tx: any) => tx.typeEntry === 'OUT')
           .reduce((sum: number, tx: any) => sum + (tx.quantityAmended || 0), 0);
@@ -79,7 +78,8 @@ const DashboardPage: React.FC = () => {
             return sum + price * quantity;
           }, 0);
 
-        // Update stats
+        if (!isMounted) return;
+
         setStats({
           totalUsers,
           totalRegions,
@@ -89,23 +89,32 @@ const DashboardPage: React.FC = () => {
           totalSuppliesUsed: totalOutQuantity
         });
 
-        // Get the 10 most recent transactions
         const recentTxs = [...transactions]
           .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
           .slice(0, 10);
 
         setRecentTransactions(recentTxs);
 
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        toast.error('Failed to load dashboard data');
+      } catch (e: any) {
+        // Só dispara toast se for um erro de verdade
+        const status = e.response?.status;
+        const msg = e.response?.data?.message || e.message || 'Erro desconhecido';
+
+        if (isMounted) {
+          // Se for 4xx ou 5xx, mostre o toast
+          toast.error(`Falha ao carregar dados: ${msg}`);
+
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) setLoading(false);
       }
     };
 
-    loadDashboardData();
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
 
   // Format currency
   const formatCurrency = (value: number) => {

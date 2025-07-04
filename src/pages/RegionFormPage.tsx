@@ -7,7 +7,7 @@ import { API } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 
 type Region = {
-  id: number;
+  id?: number;
   regionCode: string;
   regionName: string;
   cityName: string;
@@ -52,53 +52,53 @@ const RegionFormPage: React.FC = () => {
 
   // Load region data in edit mode
   useEffect(() => {
-    if (isEditMode) {
-      fetchRegion();
+    let isMounted = true;
+
+    if (regionCode) {
+      fetchRegion(isMounted);
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [regionCode]);
 
-  const fetchRegion = async () => {
+
+  const fetchRegion = async (isMounted: boolean) => {
     try {
       setLoading(true);
       const response = await API.get(`/region/${regionCode}`);
 
-      if (response.data) {
+      if (response.data && isMounted) {
         setRegion(response.data);
         setDataLoaded(true);
-      } else {
+      } else if (isMounted) {
         toast.error('Region not found');
         navigate('/regions');
       }
     } catch (error) {
       console.error('Error loading region:', error);
-      let errorMessage = 'Unknown error';
-      if (typeof error === 'object' && error !== null) {
-        if ('response' in error && typeof (error as any).response?.data?.message === 'string') {
-          errorMessage = (error as any).response.data.message;
-        } else if ('message' in error && typeof (error as any).message === 'string') {
-          errorMessage = (error as any).message;
-        }
+      const message =
+        (error as any)?.response?.data?.message ??
+        (error as any)?.message ??
+        'Unknown error';
+      if (isMounted) {
+        toast.error('Error loading region: ' + message);
+        navigate('/regions');
       }
-      toast.error('Error loading region: ' + errorMessage);
-      navigate('/regions');
     } finally {
-      setLoading(false);
+      if (isMounted) setLoading(false);
     }
   };
 
-  const handleSubmit = async (values: {
-    regionCode: string;
-    regionName: string;
-    cityName: string;
-    countryName: string;
-    stateName: string;
-    addressCode: string;
-    responsibleName: string;
-    containsAgentsLocal: boolean;
-  }, { setSubmitting }: any) => {
+
+  const handleSubmit = async (
+    values: Region,
+    { setSubmitting }: any
+  ) => {
+    let isMounted = true;
+
     try {
-      // Convert values to match API expectations
-      // API expects all uppercase for region code, city, country, and region name
       const regionData = {
         regionCode: values.regionCode.toUpperCase(),
         regionName: values.regionName.toUpperCase(),
@@ -110,34 +110,27 @@ const RegionFormPage: React.FC = () => {
         containsAgentsLocal: values.containsAgentsLocal,
       };
 
-      let response;
-
       if (isEditMode) {
-        // Update existing region
-        response = await API.put(`region/${regionCode}`, regionData);
-        toast.success('Region updated successfully');
+        await API.put(`region/${regionCode}`, regionData);
+        if (isMounted) toast.success('Region updated successfully');
       } else {
-        // Create new region
-        response = await API.post('region', regionData);
-        toast.success('Region created successfully');
+        await API.post('region', regionData);
+        if (isMounted) toast.success('Region created successfully');
       }
 
-      navigate('/regions');
+      if (isMounted) navigate('/regions');
     } catch (error) {
       console.error('Error saving region:', error);
-      let errorMessage = 'Unknown error';
-      if (typeof error === 'object' && error !== null) {
-        if ('response' in error && typeof (error as any).response?.data?.message === 'string') {
-          errorMessage = (error as any).response.data.message;
-        } else if ('message' in error && typeof (error as any).message === 'string') {
-          errorMessage = (error as any).message;
-        }
-      }
-      toast.error('Error saving region: ' + errorMessage);
+      const message =
+        (error as any)?.response?.data?.message ??
+        (error as any)?.message ??
+        'Unknown error';
+      if (isMounted) toast.error('Error saving region: ' + message);
     } finally {
-      setSubmitting(false);
+      if (isMounted) setSubmitting(false);
     }
   };
+
 
   // Initial form values
   const initialValues = dataLoaded && isEditMode && region
@@ -214,137 +207,138 @@ const RegionFormPage: React.FC = () => {
               >
 
                 {({ errors, touched, isSubmitting }) => (
-                    <Form>
-                      <div className="row mb-3">
-                        <div className="col-md-6">
-                          <label htmlFor="regionCode" className="form-label">Region Code</label>
-                          <Field
-                            type="text"
-                            id="regionCode"
-                            name="regionCode"
-                            className={`form-control ${errors.regionCode && touched.regionCode ? 'is-invalid' : ''}`}
-                            disabled={isEditMode} // Region code cannot be changed in edit mode
-                            placeholder="e.g. GRU"
-                          />
-                          <small className="form-text text-muted">3-letter code, like GRU for Guarulhos</small>
-                          <ErrorMessage name="regionCode" component="div" className="invalid-feedback" />
-                        </div>
-                        <div className="col-md-6">
-                          <label htmlFor="regionName" className="form-label">Region Name</label>
-                          <Field
-                            type="text"
-                            id="regionName"
-                            name="regionName"
-                            className={`form-control ${errors.regionName && touched.regionName ? 'is-invalid' : ''}`}
-                            placeholder="e.g. Guarulhos Airport"
-                          />
-                          <ErrorMessage name="regionName" component="div" className="invalid-feedback" />
-                        </div>
-                      </div>
-
-                      <div className="row mb-3">
-                        <div className="col-md-6">
-                          <label htmlFor="cityName" className="form-label">City</label>
-                          <Field
-                            type="text"
-                            id="cityName"
-                            name="cityName"
-                            className={`form-control ${errors.cityName && touched.cityName ? 'is-invalid' : ''}`}
-                            placeholder="e.g. Guarulhos"
-                          />
-                          <ErrorMessage name="cityName" component="div" className="invalid-feedback" />
-                        </div>
-                        <div className="col-md-6">
-                          <label htmlFor="countryName" className="form-label">Country</label>
-                          <Field
-                            type="text"
-                            id="countryName"
-                            name="countryName"
-                            className={`form-control ${errors.countryName && touched.countryName ? 'is-invalid' : ''}`}
-                            placeholder="e.g. Brazil"
-                          />
-                          <ErrorMessage name="countryName" component="div" className="invalid-feedback" />
-                        </div>
-                      </div>
-
-                      <div className="row mb-3">
-                        <div className="col-md-6">
-                          <label htmlFor="stateName" className="form-label">State</label>
-                          <Field
-                            type="text"
-                            id="stateName"
-                            name="stateName"
-                            className={`form-control ${errors.stateName && touched.stateName ? 'is-invalid' : ''}`}
-                            placeholder="e.g. São Paulo"
-                          />
-                          <ErrorMessage name="stateName" component="div" className="invalid-feedback" />
-                        </div>
-                        <div className="col-md-6">
-                          <label htmlFor="addressCode" className="form-label">Address Code</label>
-                          <Field
-                            type="text"
-                            id="addressCode"
-                            name="addressCode"
-                            className={`form-control ${errors.addressCode && touched.addressCode ? 'is-invalid' : ''}`}
-                            placeholder="e.g. ADD123"
-                          />
-                          <ErrorMessage name="addressCode" component="div" className="invalid-feedback" />
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <label htmlFor="responsibleName" className="form-label">Responsible Name</label>
+                  <Form>
+                    <div className="row mb-3">
+                      <div className="col-md-6">
+                        <label htmlFor="regionCode" className="form-label">Region Code</label>
                         <Field
                           type="text"
-                          id="responsibleName"
-                          name="responsibleName"
-                          className={`form-control ${errors.responsibleName && touched.responsibleName ? 'is-invalid' : ''}`}
-                          placeholder="e.g. John Doe"
+                          id="regionCode"
+                          name="regionCode"
+                          className={`form-control ${errors.regionCode && touched.regionCode ? 'is-invalid' : ''}`}
+                          disabled={isEditMode} // Region code cannot be changed in edit mode
+                          placeholder="e.g. GRU"
                         />
-                        <ErrorMessage name="responsibleName" component="div" className="invalid-feedback" />
+                        <small className="form-text text-muted">3-letter code, like GRU for Guarulhos</small>
+                        <ErrorMessage name="regionCode" component="div" className="invalid-feedback" />
                       </div>
-
-                      <div className="mb-3 form-check form-switch">
-                        <Field name="containsAgentsLocal">
-                          {({ field }: any) => (
-                            <div className="form-check form-switch">
-                              <input
-                                type="checkbox"
-                                id="containsAgentsLocal"
-                                className="form-check-input"
-                                checked={field.value}
-                                onChange={() => {
-                                  field.onChange({
-                                    target: {
-                                      name: field.name,
-                                      value: !field.value
-                                    }
-                                  });
-                                }}
-                              />
-                              <label className="form-check-label" htmlFor="containsAgentsLocal">
-                                Contains Local Agents
-                              </label>
-                            </div>
-                          )}
-                        </Field>
+                      <div className="col-md-6">
+                        <label htmlFor="regionName" className="form-label">Region Name</label>
+                        <Field
+                          type="text"
+                          id="regionName"
+                          name="regionName"
+                          className={`form-control ${errors.regionName && touched.regionName ? 'is-invalid' : ''}`}
+                          placeholder="e.g. Guarulhos Airport"
+                        />
+                        <ErrorMessage name="regionName" component="div" className="invalid-feedback" />
                       </div>
+                    </div>
 
-                      <button
-                        type="submit"
-                        className="btn btn-primary"
-                        disabled={isSubmitting}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Region'
+                    <div className="row mb-3">
+                      <div className="col-md-6">
+                        <label htmlFor="cityName" className="form-label">City</label>
+                        <Field
+                          type="text"
+                          id="cityName"
+                          name="cityName"
+                          className={`form-control ${errors.cityName && touched.cityName ? 'is-invalid' : ''}`}
+                          placeholder="e.g. Guarulhos"
+                        />
+                        <ErrorMessage name="cityName" component="div" className="invalid-feedback" />
+                      </div>
+                      <div className="col-md-6">
+                        <label htmlFor="countryName" className="form-label">Country</label>
+                        <Field
+                          type="text"
+                          id="countryName"
+                          name="countryName"
+                          className={`form-control ${errors.countryName && touched.countryName ? 'is-invalid' : ''}`}
+                          placeholder="e.g. Brazil"
+                        />
+                        <ErrorMessage name="countryName" component="div" className="invalid-feedback" />
+                      </div>
+                    </div>
+
+                    <div className="row mb-3">
+                      <div className="col-md-6">
+                        <label htmlFor="stateName" className="form-label">State</label>
+                        <Field
+                          type="text"
+                          id="stateName"
+                          name="stateName"
+                          className={`form-control ${errors.stateName && touched.stateName ? 'is-invalid' : ''}`}
+                          placeholder="e.g. São Paulo"
+                        />
+                        <ErrorMessage name="stateName" component="div" className="invalid-feedback" />
+                      </div>
+                      <div className="col-md-6">
+                        <label htmlFor="addressCode" className="form-label">Address Code</label>
+                        <Field
+                          type="text"
+                          id="addressCode"
+                          name="addressCode"
+                          className={`form-control ${errors.addressCode && touched.addressCode ? 'is-invalid' : ''}`}
+                          placeholder="e.g. ADD123"
+                        />
+                        <ErrorMessage name="addressCode" component="div" className="invalid-feedback" />
+                      </div>
+                    </div>
+
+                    <div className="mb-3">
+                      <label htmlFor="responsibleName" className="form-label">Responsible Name</label>
+                      <Field
+                        type="text"
+                        id="responsibleName"
+                        name="responsibleName"
+                        className={`form-control ${errors.responsibleName && touched.responsibleName ? 'is-invalid' : ''}`}
+                        placeholder="e.g. John Doe"
+                      />
+                      <ErrorMessage name="responsibleName" component="div" className="invalid-feedback" />
+                    </div>
+
+                    <div className="mb-3 form-check form-switch">
+                      <Field name="containsAgentsLocal">
+                        {({ field }: any) => (
+                          <div className="form-check form-switch">
+                            <input
+                              type="checkbox"
+                              id="containsAgentsLocal"
+                              value='containsAgentsLocal'
+                              className="form-check-input"
+                              checked={field.value}
+                              onChange={() => {
+                                field.onChange({
+                                  target: {
+                                    name: field.name,
+                                    value: !field.value
+                                  }
+                                });
+                              }}
+                            />
+                            <label className="form-check-label" htmlFor="containsAgentsLocal">
+                              Contains Local Agents
+                            </label>
+                          </div>
                         )}
-                      </button>
-                    </Form>
+                      </Field>
+                    </div>
+
+                    <button
+                      type="submit"
+                      className="btn btn-primary"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Region'
+                      )}
+                    </button>
+                  </Form>
                 )}
               </Formik>
 

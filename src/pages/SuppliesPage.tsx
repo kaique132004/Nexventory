@@ -1,25 +1,27 @@
 import React from 'react';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { API } from '../auth/AuthContext';
+import { API, API_SUPPLY_API } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 import { confirmAlert } from 'react-confirm-alert';
 import 'react-confirm-alert/src/react-confirm-alert.css';
 
-interface RegionalPrice {
+interface RegionalPrices {
   regionCode: string;
   price: number | string;
   currency?: string;
   quantity?: number;
+  supplier?: string;
 }
 
 interface Supply {
   id?: string | number;
-  supplyId?: string | number;
   supplyName: string;
-  supplyDescription?: string;
-  regionalPrices?: RegionalPrice[];
-  active?: boolean;
+  description?: string;
+  regionalPrices?: RegionalPrices[];
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 const SuppliesPage: React.FC = () => {
@@ -29,16 +31,18 @@ const SuppliesPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadSupplies();
+    requestAnimationFrame(() => {
+      loadSupplies();
+    });
   }, []);
 
   const loadSupplies = async () => {
     try {
       setLoading(true);
-      const response = await API.get('supply/list');
-      
-      if (response.data && Array.isArray(response.data.data)) {
-        setSupplies(response.data.data);
+      const response = await API_SUPPLY_API.get('supply/list');
+
+      if (response.data && Array.isArray(response.data)) {
+        setSupplies(response.data);
       } else {
         throw new Error('Invalid response format');
       }
@@ -67,7 +71,7 @@ const SuppliesPage: React.FC = () => {
         },
         {
           label: 'No',
-          onClick: () => {}
+          onClick: () => { }
         }
       ]
     });
@@ -75,7 +79,7 @@ const SuppliesPage: React.FC = () => {
 
   const deleteSupply = async (supplyId: any) => {
     try {
-      await API.delete(`supply/del/${supplyId}`);
+      await API_SUPPLY_API.delete(`supply/del/${supplyId}`);
       toast.success('Supply deleted successfully');
       loadSupplies(); // Reload supplies after deletion
     } catch (error) {
@@ -95,9 +99,9 @@ const SuppliesPage: React.FC = () => {
       const currency = rp.currency || 'USD';
       const price = parseFloat(rp.price).toFixed(2);
       return (
-        <span 
-          key={index} 
-          className="badge bg-info me-1 mb-1" 
+        <span
+          key={index}
+          className="badge bg-info me-1 mb-1"
           title={`Price: ${price} ${currency}, Stock: ${rp.quantity || 0}`}
         >
           {rp.regionCode}: {price} {currency}
@@ -158,38 +162,38 @@ const SuppliesPage: React.FC = () => {
                     </tr>
                   ) : (
                     supplies.map((supply) => (
-                      <tr key={supply.id || supply.supplyId}>
+                      <tr key={supply.id}>
                         <td>{supply.supplyName}</td>
-                        <td>{supply.supplyDescription || '-'}</td>
+                        <td>{supply.description || '-'}</td>
                         <td>
                           <div className="d-flex flex-wrap">
                             {renderRegionalPrices(supply.regionalPrices)}
                           </div>
                         </td>
                         <td>
-                          {supply.active ? 
-                            <span className="badge bg-success">Active</span> : 
+                          {supply.isActive ?
+                            <span className="badge bg-success">Active</span> :
                             <span className="badge bg-danger">Inactive</span>
                           }
                         </td>
                         <td>
-                          <button 
+                          <button
                             className="btn btn-sm btn-outline-primary me-2"
-                            onClick={() => handleEdit(supply.id || supply.supplyId)}
+                            onClick={() => handleEdit(supply.id)}
                             title="Edit supply"
                           >
                             <i className="bi bi-pencil"></i>
                           </button>
-                          <button 
+                          <button
                             className="btn btn-sm btn-outline-danger me-2"
-                            onClick={() => handleDelete(supply.id || supply.supplyId, supply.supplyName)}
+                            onClick={() => handleDelete(supply.id, supply.supplyName)}
                             title="Delete supply"
                           >
                             <i className="bi bi-trash"></i>
                           </button>
-                          <button 
+                          <button
                             className="btn btn-sm btn-outline-success"
-                            onClick={() => handleAddTransaction(supply.id || supply.supplyId, supply.supplyName)}
+                            onClick={() => handleAddTransaction(supply.id, supply.supplyName)}
                             title="Add transaction for this supply"
                           >
                             <i className="bi bi-plus-circle"></i>

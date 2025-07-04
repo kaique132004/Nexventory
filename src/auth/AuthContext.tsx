@@ -5,14 +5,14 @@ import { toast } from 'react-toastify';
 
 // Create API instance with base URL
 export const API = axios.create({
-  baseURL: 'http://localhost:8080/api/v2/',
+  baseURL: 'http://127.0.0.1:8080/api/v2/',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 export const API_SUPPLY_API = axios.create({
-  baseURL: 'http://localhost:8081/api/v2/',
+  baseURL: 'http://127.0.0.1:8081/api/v2/',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -24,6 +24,7 @@ export interface User {
   username: string;
   email: string;
   role: string;
+  permissions?: string[]; // Optional permissions array
   name?: string;
   [key: string]: any; // For other properties that might exist
 }
@@ -38,6 +39,7 @@ export interface AuthContextType {
   loading: boolean;
   authError: string | null;
   userRoles: string[];
+  permissions?: string[]; // Optional permissions array
   hasRole: (role: string) => boolean;
   hasAnyRole: (roles: string[]) => boolean;
   requestPasswordReset: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
@@ -99,14 +101,15 @@ const login = useCallback(async (
   try {
     const response = await API.post('auth/login', { username, password });
 
-    const { encryptedToken, username: name, role } = response.data;
+    const { encryptedToken, username: name, role, permissions, id, email } = response.data;
 
     if (encryptedToken && name && role) {
       const user: User = {
-        id: '', // ID não está vindo da resposta, pode deixar em branco ou ajustar depois
+        id: id, // ID não está vindo da resposta, pode deixar em branco ou ajustar depois
         username: name,
-        email: '', // idem
+        email: email, // idem
         role: role,
+        permissions: permissions, // Pode ser preenchido com base na resposta se necessário
         name: name,
       };
 

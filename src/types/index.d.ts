@@ -1,19 +1,12 @@
 // Global type definitions
 
-// API Response types
-export interface ApiResponse<T = any> {
-  code?: number;
-  message?: string;
-  data?: T;
-}
-
 // Auth types
 export interface UserData {
   id: string;
   username: string;
   name: string;
   email: string;
-  role: 'ADMIN' | 'SUPERVISOR' | 'USER' | 'GUEST';
+  role: 'ADMIN' | 'SUPERVISOR' | 'USER' | 'GUEST' | 'SUPPLY_MANAGER' | "MASTER";
   active: boolean;
   regionCode: Array<string | { regionCode: string, regionName?: string }>;
 }
@@ -64,10 +57,9 @@ export interface RegionalPrice {
 
 export interface SupplyData {
   id?: string;
-  supplyId?: string;
   supplyName: string;
-  supplyDescription?: string;
-  active: boolean | string;
+  description?: string;
+  isActive: boolean | string;
   regionalPrices: RegionalPrice[];
   supplyImages?: string[];
 }

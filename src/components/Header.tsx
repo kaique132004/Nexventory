@@ -14,6 +14,10 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
     logout();
     navigate('/login');
   };
+
+  const handleSettings = () => {
+    navigate('/settings');
+  };
   
   return (
     <div className="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
@@ -36,6 +40,11 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                 <i className="bi bi-box-arrow-right me-2"></i>Logout
               </button>
             </li>
+            <li>
+              <button className="dropdown-item" onClick={handleSettings}>
+                <i className="bi bi-gear me-2"></i>Settings
+              </button>
+              </li>
           </ul>
         </div>
       </div>

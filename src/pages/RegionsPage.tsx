@@ -26,8 +26,34 @@ const RegionsPage: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    loadRegions();
+    let isMounted = true;
+
+    const fetchData = async () => {
+      try {
+        const res = await API.get('/region');
+        if (isMounted) {
+          setRegions(res.data);
+        }
+      } catch (err: any) {
+        if (isMounted) {
+          toast.error("Erro ao carregar regiões");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    requestAnimationFrame(() => {
+      fetchData();
+    });
+
+    return () => {
+      isMounted = false; // evita setState ou toast depois do unmount
+    };
   }, []);
+
 
   const loadRegions = async () => {
     try {
@@ -137,7 +163,7 @@ const RegionsPage: React.FC = () => {
                         <td>{region.cityName}</td>
                         <td>{region.stateName}</td>
                         <td>{region.countryName}</td>
-                        
+
                         <td>
                           <button
                             className="btn btn-sm btn-outline-primary me-2"

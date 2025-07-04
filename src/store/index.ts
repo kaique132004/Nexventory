@@ -15,7 +15,7 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: false,
     }),
-  devTools: process.env.NODE_ENV !== 'production',
+  devTools: process.env.NODE_ENV !== 'development', // Enable Redux DevTools in development mode
 });
 
 // Optional, but required for refetchOnFocus/refetchOnReconnect behaviors
