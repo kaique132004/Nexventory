@@ -48,7 +48,15 @@ const TransactionsPage: React.FC = () => {
   const [exportLoading, setExportLoading] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const { user } = useAuth();
-  const navigate = useNavigate();
+
+  const visibleColumns = user?.siteSettings?.transactionsColumns === 'custom'
+    ? user.siteSettings.customColumns?.transactions || []
+    : user?.siteSettings?.transactionsColumns === 'all';
+
+  const isVisible = (column: string) => {
+    if (!visibleColumns) return true; // Se não houver colunas personalizadas, todas são visíveis
+    return visibleColumns.includes(column);
+  }
 
   const [show, setShow] = useState(false);
   const handleShow = () => setShow(true);
@@ -447,14 +455,14 @@ const TransactionsPage: React.FC = () => {
               <table className="table table-bordered table-striped">
                 <thead className="table-light">
                   <tr>
-                    <th>Data</th>
-                    <th>Usuário</th>
-                    <th>Região</th>
-                    <th>Suprimento</th>
-                    <th>Tipo</th>
-                    <th>Quantidade</th>
-                    <th>Valor Unitário</th>
-                    <th>Total</th>
+                    {isVisible("date") && <th>Data</th>}
+                    {isVisible("userName") && <th>Usuário</th>}
+                    {isVisible("regionCode") && <th>Região</th>}
+                    {isVisible("supplyName") && <th>Suprimento</th>}
+                    {isVisible("typeEntry") && <th>Tipo</th>}
+                    {isVisible("quantityAmended") && <th>Quantidade</th>}
+                    {isVisible("priceUnit") && <th>Valor Unitário</th>}
+                    {isVisible("total") && <th>Total</th>}
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -476,21 +484,22 @@ const TransactionsPage: React.FC = () => {
                   ) : (
                     transactions.map((transaction) => (
                       <tr key={transaction.id}>
-                        <td>{formatDate(transaction.created)}</td>
-                        <td>{transaction.userName || '-'}</td>
-                        <td>{transaction.regionCode}</td>
-                        <td>{transaction.supplyName || '-'}</td>
-                        <td>
-                          <span
-                            className={`badge ${transaction.typeEntry === 'IN' ? 'bg-success bg-gradient' : 'bg-danger bg-gradient'
-                              }`}
-                          >
-                            {transaction.typeEntry === 'IN' ? 'Entrada' : 'Saída'}
-                          </span>
-                        </td>
-                        <td>{transaction.quantityAmended}</td>
-                        <td>R$ {transaction.priceUnit.toFixed(2)}</td>
-                        <td>R$ {calculateTotal(transaction.priceUnit, transaction.quantityAmended).toFixed(2)}</td>
+                        {isVisible("date") && <td>{formatDate(transaction.created)}</td>}
+                        {isVisible("userName") && <td>{transaction.userName || '-'}</td>}
+                        {isVisible("regionCode") && <td>{transaction.regionCode}</td>}
+                        {isVisible("supplyName") && <td>{transaction.supplyName || '-'}</td>}
+                        {isVisible("typeEntry") && (
+                          <td>
+                            <span className={`badge ${transaction.typeEntry === 'IN' ? 'bg-success' : 'bg-danger'}`}>
+                              {transaction.typeEntry === 'IN' ? 'Entrada' : 'Saída'}
+                            </span>
+                          </td>
+                        )}
+                        {isVisible("quantityAmended") && <td>{transaction.quantityAmended}</td>}
+                        {isVisible("priceUnit") && <td>R$ {transaction.priceUnit.toFixed(2)}</td>}
+                        {isVisible("total") && (
+                          <td>R$ {calculateTotal(transaction.priceUnit, transaction.quantityAmended).toFixed(2)}</td>
+                        )}
                         <td>
                           <button className="btn btn-sm btn-outline-warning me-2" onClick={() => handleEdit(transaction.id)}>
                             <i className='bi bi-pencil'></i>
@@ -513,32 +522,45 @@ const TransactionsPage: React.FC = () => {
       <Modal
         show={show}
         onHide={handleClose}
-        backdrop="static"
-        keyboard={false}
+        backdrop={true}
+        keyboard={true}
         centered
       >
         <Formik
           initialValues={{
             userName: editTransaction?.userName || '',
             supplyName: editTransaction?.supplyName || '',
+            supplyId: supplies.find(s => s.supplyName === editTransaction?.supplyName)?.id || '',
             regionCode: editTransaction?.regionCode || '',
             typeEntry: editTransaction?.typeEntry || '',
             quantityAmended: editTransaction?.quantityAmended || 0,
             priceUnit: editTransaction?.priceUnit || 0,
           }}
+
           onSubmit={(values) => {
             if (!editTransaction?.id) {
               toast.error('Transação não encontrada para edição');
               return;
             }
 
+            const supplyId = supplies.find(s => s.supplyName === editTransaction.supplyName)?.id;
+            if (!supplyId) {
+              toast.error('Suprimento inválido');
+              return;
+            }
+
             const fixedValues = {
+              supplyId,
+              regionCode: editTransaction.regionCode,
               quantityAmended: values.quantityAmended,
               priceUnit: values.priceUnit,
+              typeEntry: values.typeEntry || editTransaction.typeEntry || 'IN', // garantir não null
             };
 
             updateTransaction(editTransaction.id, fixedValues);
           }}
+
+
 
         >
           {({ handleSubmit }) => (
@@ -578,7 +600,13 @@ const TransactionsPage: React.FC = () => {
               </Modal.Body>
 
               <Modal.Footer>
-                <button className="btn btn-outline-secondary" onClick={() => setShow(false)}>Cancelar</button>
+                <button
+                  type="button"           // <-- MUITO IMPORTANTE: evitar submit ao clicar neste botão
+                  className="btn btn-outline-secondary"
+                  onClick={() => setShow(false)}
+                >
+                  Cancelar
+                </button>
                 <button type="submit" className="btn btn-primary">
                   <i className="bi bi-save me-1"></i> Salvar alterações
                 </button>

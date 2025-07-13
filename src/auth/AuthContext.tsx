@@ -5,14 +5,14 @@ import { toast } from 'react-toastify';
 
 // Create API instance with base URL
 export const API = axios.create({
-  baseURL: 'https://auth.kb.dev.br/api/v2/',
+  baseURL: 'http://localhost:8080/api/v2/',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 export const API_SUPPLY_API = axios.create({
-  baseURL: 'https://supply.kb.dev.br/api/v2/',
+  baseURL: 'http://localhost:8081/api/v2/',
   headers: {
     'Content-Type': 'application/json',
   },
