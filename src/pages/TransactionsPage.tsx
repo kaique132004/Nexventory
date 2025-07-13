@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { API, API_SUPPLY_API, useAuth } from '../auth/AuthContext';
 import { toast } from 'react-toastify';
 import { Formik, Form, Field } from 'formik';
-
+import { Modal } from 'react-bootstrap';
 // Definindo interfaces para tipagem
 interface Region {
   regionCode: string;
@@ -46,8 +46,13 @@ const TransactionsPage: React.FC = () => {
   const [regions, setRegions] = useState<Region[]>([]);
   const [supplies, setSupplies] = useState<Supply[]>([]);
   const [exportLoading, setExportLoading] = useState(false);
+  const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  const [show, setShow] = useState(false);
+  const handleShow = () => setShow(true);
+  const handleClose = () => setShow(false);
 
   // Default filter values - last 30 days
   const today = new Date();
@@ -61,6 +66,28 @@ const TransactionsPage: React.FC = () => {
     nameSupply: [],
     typeEntry: '',
   };
+
+  const handleEdit = (transactionId: string) => {
+    const selected = transactions.find(t => t.id === transactionId);
+    if (selected) {
+      setEditTransaction(selected);
+      handleShow();
+    }
+  }
+
+  const updateTransaction = async (id: string, values: { quantityAmended: number; }) => {
+    try {
+      const response = await API_SUPPLY_API.put(`supply/consumptions/${id}/edit`, values);
+      toast.success('Transação atualizada com sucesso');
+      setShow(false);
+      console.log('Valores enviados para atualização:', values);
+      applyFilter(filter);
+    } catch (error: any) {
+      console.error('Erro ao atualizar transação:', error.response?.data || error.message);
+      toast.error('Falha ao atualizar transação: ' + (error.response?.data?.message || error.message));
+    }
+  };
+
 
   const [filter, setFilter] = useState<Filter>(defaultFilter);
 
@@ -428,6 +455,7 @@ const TransactionsPage: React.FC = () => {
                     <th>Quantidade</th>
                     <th>Valor Unitário</th>
                     <th>Total</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -463,6 +491,14 @@ const TransactionsPage: React.FC = () => {
                         <td>{transaction.quantityAmended}</td>
                         <td>R$ {transaction.priceUnit.toFixed(2)}</td>
                         <td>R$ {calculateTotal(transaction.priceUnit, transaction.quantityAmended).toFixed(2)}</td>
+                        <td>
+                          <button className="btn btn-sm btn-outline-warning me-2" onClick={() => handleEdit(transaction.id)}>
+                            <i className='bi bi-pencil'></i>
+                          </button>
+                          <button className="btn btn-sm btn-outline-danger me-2">
+                            <i className='bi bi-trash'></i>
+                          </button>
+                        </td>
                       </tr>
                     ))
                   )}
@@ -473,7 +509,87 @@ const TransactionsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      <Modal
+        show={show}
+        onHide={handleClose}
+        backdrop="static"
+        keyboard={false}
+        centered
+      >
+        <Formik
+          initialValues={{
+            userName: editTransaction?.userName || '',
+            supplyName: editTransaction?.supplyName || '',
+            regionCode: editTransaction?.regionCode || '',
+            typeEntry: editTransaction?.typeEntry || '',
+            quantityAmended: editTransaction?.quantityAmended || 0,
+            priceUnit: editTransaction?.priceUnit || 0,
+          }}
+          onSubmit={(values) => {
+            if (!editTransaction?.id) {
+              toast.error('Transação não encontrada para edição');
+              return;
+            }
+
+            const fixedValues = {
+              quantityAmended: values.quantityAmended,
+              priceUnit: values.priceUnit,
+            };
+
+            updateTransaction(editTransaction.id, fixedValues);
+          }}
+
+        >
+          {({ handleSubmit }) => (
+            <Form onSubmit={handleSubmit}>
+              <Modal.Header closeButton>
+                <Modal.Title>Editar Transação</Modal.Title>
+              </Modal.Header>
+
+              <Modal.Body>
+                <div className="mb-3">
+                  <label htmlFor="userName" className="form-label">Usuário</label>
+                  <Field disabled type="text" id="userName" name="userName" className="form-control" />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="supplyName" className="form-label">Suprimento</label>
+                  <Field disabled type="text" id="supplyName" name="supplyName" className="form-control" />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="regionCode" className="form-label">Região</label>
+                  <Field disabled type="text" id="regionCode" name="regionCode" className="form-control" />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="typeEntry" className="form-label">Tipo de Entrada/Saída</label>
+                  <Field disabled as="select" id="typeEntry" name="typeEntry" className="form-select">
+                    <option value="IN">Entrada</option>
+                    <option value="OUT">Saída</option>
+                  </Field>
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="quantityAmended" className="form-label">Quantidade</label>
+                  <Field type="number" id="quantityAmended" name="quantityAmended" className="form-control" />
+                </div>
+                <div className="mb-3">
+                  <label htmlFor="priceUnit" className="form-label">Valor Unitário</label>
+                  <Field type="number" id="priceUnit" name="priceUnit" className="form-control" />
+                </div>
+              </Modal.Body>
+
+              <Modal.Footer>
+                <button className="btn btn-outline-secondary" onClick={() => setShow(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary">
+                  <i className="bi bi-save me-1"></i> Salvar alterações
+                </button>
+              </Modal.Footer>
+            </Form>
+          )}
+        </Formik>
+      </Modal>
+
     </div>
+
   );
 };
 
