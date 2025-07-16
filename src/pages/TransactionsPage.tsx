@@ -224,7 +224,7 @@ const TransactionsPage: React.FC = () => {
       });
 
 
-      const response = await API_SUPPLY_API.post('supply/consumptions/export?format=csv', apiFilter, {
+      const response = await API_SUPPLY_API.post('supply/consumptions/export?format=csv&columns=supply&columns=date&columns=before&columns=quantity&columns=after&columns=type&columns=region', apiFilter, {
         responseType: 'blob', // importante para receber binário
       });
 
@@ -456,13 +456,13 @@ const TransactionsPage: React.FC = () => {
                 <thead className="table-light">
                   <tr>
                     {isVisible("date") && <th>Data</th>}
-                    {isVisible("userName") && <th>Usuário</th>}
                     {isVisible("regionCode") && <th>Região</th>}
                     {isVisible("supplyName") && <th>Suprimento</th>}
                     {isVisible("typeEntry") && <th>Tipo</th>}
+                    {isVisible("quantityBefore") && <th>QuantidadeAnterior</th>}
                     {isVisible("quantityAmended") && <th>Quantidade</th>}
-                    {isVisible("priceUnit") && <th>Valor Unitário</th>}
-                    {isVisible("total") && <th>Total</th>}
+                    {isVisible("quantityAfter") && <th>Quantidade Total</th>}
+                    
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -485,7 +485,6 @@ const TransactionsPage: React.FC = () => {
                     transactions.map((transaction) => (
                       <tr key={transaction.id}>
                         {isVisible("date") && <td>{formatDate(transaction.created)}</td>}
-                        {isVisible("userName") && <td>{transaction.userName || '-'}</td>}
                         {isVisible("regionCode") && <td>{transaction.regionCode}</td>}
                         {isVisible("supplyName") && <td>{transaction.supplyName || '-'}</td>}
                         {isVisible("typeEntry") && (
@@ -495,11 +494,10 @@ const TransactionsPage: React.FC = () => {
                             </span>
                           </td>
                         )}
+                        {isVisible("quantityBefore") && <td>{transaction.quantityBefore}</td>}
                         {isVisible("quantityAmended") && <td>{transaction.quantityAmended}</td>}
-                        {isVisible("priceUnit") && <td>R$ {transaction.priceUnit.toFixed(2)}</td>}
-                        {isVisible("total") && (
-                          <td>R$ {calculateTotal(transaction.priceUnit, transaction.quantityAmended).toFixed(2)}</td>
-                        )}
+                        {isVisible("quantityAfter") && <td>{transaction.quantityAfter}</td>}
+                        
                         <td>
                           <button className="btn btn-sm btn-outline-warning me-2" onClick={() => handleEdit(transaction.id)}>
                             <i className='bi bi-pencil'></i>

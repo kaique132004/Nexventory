@@ -91,50 +91,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Handle login
   // Handle login
-const login = useCallback(async (
-  username: string,
-  password: string
-): Promise<{ encryptedToken?: string; username?: string; role?: string; error?: string }> => {
-  setLoading(true);
-  setAuthError(null);
+  const login = useCallback(async (
+    username: string,
+    password: string
+  ): Promise<{ encryptedToken?: string; username?: string; role?: string; error?: string }> => {
+    setLoading(true);
+    setAuthError(null);
 
-  try {
-    const response = await API.post('auth/login', { username, password });
+    try {
+      const response = await API.post('auth/login', { username, password });
 
-    const { encryptedToken, username: name, role, permissions, id, email } = response.data;
+      const { encryptedToken, username: name, role, permissions, id, email, siteSettings } = response.data;
 
-    if (encryptedToken && name && role) {
-      const user: User = {
-        id: id, // ID não está vindo da resposta, pode deixar em branco ou ajustar depois
-        username: name,
-        email: email, // idem
-        role: role,
-        permissions: permissions, // Pode ser preenchido com base na resposta se necessário
-        name: name,
-      };
+      if (encryptedToken && name && role) {
+        const user: User = {
+          id: id, // ID não está vindo da resposta, pode deixar em branco ou ajustar depois
+          username: name,
+          email: email, // idem
+          role: role,
+          permissions: permissions, // Pode ser preenchido com base na resposta se necessário
+          siteSettings: siteSettings, // Inicializa com objeto vazio
+          name: name,
+        };
 
-      // Salvar no localStorage
-      localStorage.setItem('token', encryptedToken);
-      localStorage.setItem('user', JSON.stringify(user));
+        // Salvar no localStorage
+        localStorage.setItem('token', encryptedToken);
+        localStorage.setItem('user', JSON.stringify(user));
 
-      setToken(encryptedToken);
-      setUser(user);
+        setToken(encryptedToken);
+        setUser(user);
 
-      return { encryptedToken, username: name, role };
-    } else {
-      throw new Error('Invalid response from server');
+        return { encryptedToken, username: name, role };
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      const axiosError = error as AxiosError<{ message?: string }>;
+      const errorMessage =
+        axiosError.response?.data?.message || axiosError.message || 'Login failed';
+      setAuthError(errorMessage);
+      toast.error(errorMessage);
+      return { error: errorMessage };
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    const axiosError = error as AxiosError<{ message?: string }>;
-    const errorMessage =
-      axiosError.response?.data?.message || axiosError.message || 'Login failed';
-    setAuthError(errorMessage);
-    toast.error(errorMessage);
-    return { error: errorMessage };
-  } finally {
-    setLoading(false);
-  }
-}, []);
+  }, []);
 
 
 
@@ -179,10 +180,10 @@ const login = useCallback(async (
     }
   }, []);
 
-  // Set up axios interceptors for token handling
   useEffect(() => {
-    if (!token) return; // Só configura interceptors se o token existir
+    if (!token) return;
 
+    // Interceptors para API (localhost:8080)
     const requestInterceptor = API.interceptors.request.use(
       (config) => {
         config.headers.Authorization = `Bearer ${token}`;
@@ -205,13 +206,39 @@ const login = useCallback(async (
       }
     );
 
-    setLoading(false); // move para cá
+    // Interceptors para API_SUPPLY_API (localhost:8081)
+    const requestInterceptorSupply = API_SUPPLY_API.interceptors.request.use(
+      (config) => {
+        config.headers.Authorization = `Bearer ${token}`;
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
+    const responseInterceptorSupply = API_SUPPLY_API.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error.response?.status === 401) {
+          logout();
+          toast.error('Session expired. Please log in again.');
+        }
+        if (error.response?.status === 403) {
+          toast.error('You do not have permission to perform this action');
+        }
+        return Promise.reject(error);
+      }
+    );
+
+    setLoading(false);
 
     return () => {
       API.interceptors.request.eject(requestInterceptor);
       API.interceptors.response.eject(responseInterceptor);
+      API_SUPPLY_API.interceptors.request.eject(requestInterceptorSupply);
+      API_SUPPLY_API.interceptors.response.eject(responseInterceptorSupply);
     };
   }, [token, logout]);
+
 
 
   // Context value to be provided

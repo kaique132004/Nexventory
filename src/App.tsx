@@ -25,7 +25,6 @@ import NotFoundPage from './pages/NotFoundPage';
 import AssetsPage from './pages/AssetsPage';
 import PermissionsPage from './pages/PermissionsPage';
 import PermissionFormPage from './pages/PermissionsFormPage';
-import UserSettings from './pages/UserSettings';
 
 // Component for role-based protection
 type RoleProtectedRouteProps = {
@@ -92,14 +91,6 @@ function App() {
               element={
                 <RoleProtectedRoute allowedRoles={['ADMIN', 'SUPERVISOR', 'MASTER']}>
                   <UserFormPage />
-                </RoleProtectedRoute>
-              }
-            />
-            <Route 
-              path='settings'
-              element={
-                <RoleProtectedRoute allowedRoles={['ADMIN', 'SUPERVISOR', 'MASTER', 'USER']}>
-                  <UserSettings />
                 </RoleProtectedRoute>
               }
             />
@@ -194,16 +185,6 @@ function App() {
             {/* Transactions - accessible by all authenticated users */}
             <Route path="transactions" element={<TransactionsPage />} />
             <Route path="transactions/new" element={<TransactionFormPage />} />
-
-            {/* Assets - only ADMIN */}
-            <Route
-              path="assets"
-              element={
-                <RoleProtectedRoute allowedRoles={['MASTER']}>
-                  <AssetsPage />
-                </RoleProtectedRoute>
-              }
-            />
 
             {/* 404 page */}
             <Route path="*" element={<NotFoundPage />} />

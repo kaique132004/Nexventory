@@ -71,14 +71,6 @@ const Sidebar: React.FC = () => {
               <i className="bi bi-arrow-left-right me-2"></i>Transactions
             </NavLink>
           </li>
-
-          {isMaster && (
-            <li className="nav-item">
-              <NavLink to="/assets" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-                <i className="bi bi-pc-display me-2"></i>Assets (Preview)
-              </NavLink>
-            </li>
-          )}
         </ul>
       </div>
 

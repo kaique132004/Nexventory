@@ -9,7 +9,7 @@ interface HeaderProps {
 const Header: React.FC<HeaderProps> = ({ title }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -18,17 +18,17 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
   const handleSettings = () => {
     navigate('/settings');
   };
-  
+
   return (
     <div className="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
       <h1 className="h2">{title || 'Dashboard'}</h1>
       <div className="btn-toolbar mb-2 mb-md-0">
         <div className="dropdown">
-          <button 
-            className="btn btn-sm btn-outline-secondary dropdown-toggle" 
+          <button
+            className="btn btn-sm btn-outline-secondary dropdown-toggle"
             type="button"
-            id="user-dropdown" 
-            data-bs-toggle="dropdown" 
+            id="user-dropdown"
+            data-bs-toggle="dropdown"
             aria-expanded="false"
           >
             <i className="bi bi-person-circle me-1"></i>
@@ -40,11 +40,6 @@ const Header: React.FC<HeaderProps> = ({ title }) => {
                 <i className="bi bi-box-arrow-right me-2"></i>Logout
               </button>
             </li>
-            <li>
-              <button className="dropdown-item" onClick={handleSettings}>
-                <i className="bi bi-gear me-2"></i>Settings
-              </button>
-              </li>
           </ul>
         </div>
       </div>
